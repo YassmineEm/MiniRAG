@@ -1,27 +1,30 @@
 import os
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import Docx2txtLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 
 def create_vector_store():
     all_docs = []
     
-    # Parcourir tous les fichiers PDF dans le dossier ./data/
     for filename in os.listdir("data"):
-        if filename.endswith(".pdf"):
-            pdf_path = os.path.join("data", filename)
-            loader = PyPDFLoader(pdf_path)
-            docs = loader.load()
-            all_docs.extend(docs)
+        if filename.endswith(".docx"):
+            docx_path = os.path.join("data", filename)
+            try:
+                loader = Docx2txtLoader(docx_path)
+                docs = loader.load()
+                all_docs.extend(docs)
+            except Exception as e:
+                print(f"Erreur lors du chargement du fichier {filename}: {e}")
 
-    # Découper les documents en chunks
+    if not all_docs:
+        raise ValueError("Aucun document valide n'a été chargé depuis le dossier data")
+
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     docs_split = splitter.split_documents(all_docs)
 
-    # Créer les embeddings et stocker dans Chroma
-    embedding = OpenAIEmbeddings()
+    embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectordb = Chroma.from_documents(docs_split, embedding, persist_directory="./db")
     vectordb.persist()
-
+    print("Vector store créé avec succès!")
 
